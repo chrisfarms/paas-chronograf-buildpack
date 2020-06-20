@@ -1,0 +1,71 @@
+#!/usr/bin/env bash
+set -euo pipefail
+# https://docs.cloudfoundry.org/buildpacks/understand-buildpacks.html
+
+BUILD_DIR="${1}"
+CACHE_DIR="${2}"
+DEPS_DIR="${3}"
+DEPS_IDX="${4}"
+
+BUILDPACK_DIR=$(dirname $(readlink -f ${BASH_SOURCE%/*}))
+source ${BUILDPACK_DIR}/parameters.sh
+
+CHRONOGRAF_CHECKSUM_PATH="${CACHE_DIR}/chronograf-${CHRONOGRAF_VERSION}.linux-amd64.sum"
+CHRONOGRAF_TAR_PATH="${CACHE_DIR}/chronograf-${CHRONOGRAF_VERSION}.linux-amd64.tar.gz"
+CHRONOGRAF_DIR="${DEPS_DIR}/${DEPS_IDX}/chronograf"
+echo "${CHRONOGRAF_SHA256} ${CHRONOGRAF_TAR_PATH}" > "$CHRONOGRAF_CHECKSUM_PATH"
+if ! sha256sum -c "$CHRONOGRAF_CHECKSUM_PATH" 2>/dev/null 1>/dev/null; then
+	echo "-----> downloading chronograf: ${CHRONOGRAF_DOWNLOAD_URL}"
+	if curl -fLs -o "$CHRONOGRAF_TAR_PATH" "$CHRONOGRAF_DOWNLOAD_URL"; then
+		sha256sum ${CHRONOGRAF_TAR_PATH}
+		sha256sum -c "$CHRONOGRAF_CHECKSUM_PATH"
+	else
+		echo "ERROR: chronograf version ${CHRONOGRAF_VERSION} not found, URL=${CHRONOGRAF_DOWNLOAD_URL}"
+		exit 1
+	fi
+fi
+echo "-----> installing chronograf"
+mkdir -p "${CHRONOGRAF_DIR}/bin"
+mkdir -p "${CHRONOGRAF_DIR}/conf"
+tar -zxf "${CHRONOGRAF_TAR_PATH}" -C "${CHRONOGRAF_DIR}" --strip-components 3
+mkdir -p "${BUILD_DIR}/.profile.d"
+cat <<EOF > "${BUILD_DIR}/.profile.d/0010_chronograf.sh"
+export CHRONOGRAF_ROOT="/home/vcap/deps/${DEPS_IDX}/chronograf"
+export PATH="\${CHRONOGRAF_ROOT}/bin:\$PATH"
+export CANNED_PATH="\${CHRONOGRAF_ROOT}/share/chronograf/canned"
+export RESOURCES_PATH="\${CHRONOGRAF_ROOT}/share/chronograf/resources"
+export CHRONOGRAF_INFLUXDB_HOSTNAME="\$(echo \$VCAP_SERVICES | jq -r '.influxdb[0].credentials.hostname')"
+export CHRONOGRAF_INFLUXDB_PORT="\$(echo \$VCAP_SERVICES | jq -r '.influxdb[0].credentials.port')"
+export CHRONOGRAF_INFLUXDB_URL="https://\${CHRONOGRAF_INFLUXDB_HOSTNAME}:\${CHRONOGRAF_INFLUXDB_PORT}"
+export CHRONOGRAF_INFLUXDB_USERNAME="\$(echo \$VCAP_SERVICES | jq -r '.influxdb[0].credentials.username')"
+export CHRONOGRAF_INFLUXDB_PASSWORD="\$(echo \$VCAP_SERVICES | jq -r '.influxdb[0].credentials.password')"
+export CHRONOGRAF_INFLUXDB_DATABASE="defaultdb"
+export CHRONOGRAF_INFLUXDB_RETENTION_POLICY="default_retention_policy"
+EOF
+cat <<EOF > "${CHRONOGRAF_DIR}/share/chronograf/resources/influx.src"
+{
+	"id": "10000",
+	"name": "influxdb",
+	"username": "{{ .CHRONOGRAF_INFLUXDB_USERNAME }}",
+	"password": "{{ .CHRONOGRAF_INFLUXDB_PASSWORD }}",
+	"url": "{{ .CHRONOGRAF_INFLUXDB_URL }}",
+	"type": "influx",
+	"insecureSkipVerify": false,
+	"default": true,
+	"defaultRP": "{{ .CHRONOGRAF_INFLUXDB_RETENTION_POLICY }}",
+	"telegraf": "{{ .CHRONOGRAF_INFLUXDB_DATABASE }}",
+	"organization": "default"
+}
+EOF
+cat <<EOF > "${CHRONOGRAF_DIR}/share/chronograf/resources/local.kap"
+{
+	"id": "10000",
+	"srcID": "10000",
+	"name": "Kapacitor",
+	"url": "http://localhost:9092",
+	"active": true,
+	"organization": "default"
+}
+EOF
+chmod +x "${CHRONOGRAF_DIR}/bin/chronograf"
+

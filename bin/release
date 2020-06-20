@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+# bin/release <build-dir>
+set -e
+
+cat <<EOF
+---
+default_process_types:
+  web: \${CHRONOGRAF_ROOT}/bin/chronograf
+EOF
