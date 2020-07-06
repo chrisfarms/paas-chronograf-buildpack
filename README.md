@@ -21,16 +21,27 @@ Create a manifest.yml describing your application:
 ```
 ---
 applications:
+
 - name: chronograf
   memory: 250M
   instances: 1
   stack: cflinuxfs3
-  health-check-type: process
+
   buildpacks:
-  - https://github.com/chrisfarms/paas-kapacitor-buildpack
-  - https://github.com/chrisfarms/paas-chronograf-buildpack
+
+    # optional: include telegraf sidecar to ingest metrics
+    - https://github.com/chrisfarms/paas-telegraf-buildpack
+
+    # optional: include kapacitor sidecar
+    - https://github.com/chrisfarms/paas-kapacitor-buildpack
+
+    # required: include this buildpack
+    - https://github.com/chrisfarms/paas-chronograf-buildpack
+
   services:
-  - my-influx-db-service-instance    # bind to an influxdb instance
+
+    # required: bind an influxdb service to read from
+    - my-influx-db-service-instance
 ```
 
 Push your application:
