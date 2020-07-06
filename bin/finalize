@@ -16,5 +16,5 @@ source ${BUILDPACK_DIR}/parameters.sh
 # this lets the buildpack be used as non-sidecar
 echo "-----> finalizing"
 cat <<EOF > "${BUILD_DIR}/Procfile"
-web: /bin/sleep 9999999
+web: \${CHRONOGRAF_ROOT}/bin/chronograf
 EOF
