@@ -6,6 +6,8 @@ connected to an `influxdb` service instance.
 * Visualise your application logs and metrics by adding [paas-telegraf-buildpack][] sidecars
 * Alert on metric conditions by combining with [paas-kapacitor-buildpack][]
 
+![screenshot](./screenshot.png)
+
 Designed for use with GOV.UK PaaS cloudfoundry, PRs welcome for other
 cloudfoundry's with influxdb service support.
 
@@ -16,7 +18,7 @@ sidecar to each of your applications.
 
 ## Usage
 
-Create a manifest.yml describing your application:
+Create a manifest.yml describing the chronograf deployment:
 
 ```
 ---
