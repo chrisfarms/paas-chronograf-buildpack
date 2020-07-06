@@ -20,7 +20,7 @@ sidecar to each of your applications.
 
 Create a manifest.yml describing the chronograf deployment:
 
-```
+```yaml
 ---
 applications:
 
